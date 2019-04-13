@@ -1,0 +1,19 @@
+[*]
+end_of_line = lf
+insert_final_newline = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+charset = utf-8-bom
+
+[*.{c,h,cpp}]
+indent_style = space
+indent_size = 4
+charset = utf-8-bom
+
+[*.rb]
+end_of_line = cr
+indent_style = space
+indent_size = 16
+charset = utf-16le
