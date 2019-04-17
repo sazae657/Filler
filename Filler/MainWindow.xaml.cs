@@ -26,6 +26,7 @@ namespace Filler
         public MainWindow()
         {
             InitializeComponent();
+            Guid = Guid.NewGuid();
             txtDest.Text = 
                 System.Environment.GetFolderPath(Environment.SpecialFolder.Personal);
         }
@@ -34,6 +35,8 @@ namespace Filler
         private CancellationTokenSource tokenSource = null;
 
         DirectoryInfo rootDir = null;
+        DirectoryInfo tmpDir = null;
+        Guid Guid;
         string fileExt = "xlsx";
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
@@ -64,6 +67,9 @@ namespace Filler
                         n++;
                         var f = System.IO.Path.Combine(rootDir.FullName, $"{n:D16}.{fileExt}");
                         Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{GetTotalFreeSpace(rootDir.FullName)}");
+                        if (File.Exists(f)) {
+                            continue;
+                        }
                         WriteFile(f);
                     }
                     else {
@@ -73,10 +79,10 @@ namespace Filler
                         }
                         n++;
                         var f = System.IO.Path.Combine(rootDir.FullName, $"{n:D16}.{fileExt}");
+                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{GetTotalFreeSpace(rootDir.FullName)}");
                         if (File.Exists(f)) {
                             continue;
                         }
-                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{GetTotalFreeSpace(rootDir.FullName)}");
                         WriteFileAsync(f);
                     }
                     Thread.Sleep(1);
@@ -86,6 +92,14 @@ namespace Filler
                 tokenSource.Dispose();
                 tokenSource = null;
                 running = false;
+
+                foreach (var n in Tasks.ToArray()) {
+                    var boo = n.Result;
+                }
+                if (tmpDir.Exists) {
+                    tmpDir.Delete();
+                }
+
                 Dispatcher.Invoke(() =>
                 {
                     btnStart.IsEnabled = true;
@@ -112,6 +126,13 @@ namespace Filler
             [MethodImpl(MethodImplOptions.Synchronized)]
             set; } =0;
 
+        HashSet<Task<bool>> Tasks {
+            [MethodImpl(MethodImplOptions.Synchronized)]
+            get;
+            [MethodImpl(MethodImplOptions.Synchronized)]
+            set;
+        } = new HashSet<Task<bool>>();
+    
         private bool WriteFileSync(string path)
         {
             if (File.Exists(path)) {
@@ -154,28 +175,44 @@ namespace Filler
             Dispatcher.Invoke(() => lblFileStat.Content = $"{path} init");
 
             rand.NextBytes(writeBuffer);
-            var fs = new FileStream(path, FileMode.OpenOrCreate);
+            var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...mp4";
+            var fs = new FileStream(tmp, FileMode.OpenOrCreate);
             for (int i = 0; i < blockCount; ++i) {
                 if ((i % 10) == 0) {
                     Dispatcher.Invoke(() => lblFileStat.Content = $"{path} {i}/{blockCount}");
                 }
                 fs.Write(writeBuffer, 0, writeBuffer.Length);
             }
-            Task.Factory.StartNew(() =>
+            Task<bool> task = null;
+            task = new Task<bool>(() =>
             {
+                Tasks.Add(task);
+
                 fs.Flush();
                 fs.Close();
                 fs.Dispose();
                 fs = null;
+                File.Move(tmp, path);
                 FixTimestamp(path);
+
+                return true;
             });
+            task.ContinueWith(x =>
+             {
+                 Tasks.Remove(task);
+                 return true;
+             });
+            task.Start();
 
             return true;
         }
 
         private Task<bool> WriteFileAsync(string path)
-            => Task.Factory.StartNew<bool>(() =>
+        {
+            Task<bool> task = null;
+            task = new Task<bool>(() =>
                 {
+                    Tasks.Add(task);
                     taskCount++;
                     Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {taskCount}");
 
@@ -189,20 +226,28 @@ namespace Filler
                         return false;
                     }
                     rand.NextBytes(writeBuffer);
-                    using (var fs = new FileStream(path, FileMode.OpenOrCreate)) {
+                    var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...mp4";
+                    using (var fs = new FileStream(tmp, FileMode.OpenOrCreate)) {
                         for (int i = 0; i < blockCount; ++i) {
                             fs.Write(writeBuffer, 0, writeBuffer.Length);
                         }
                         fs.Flush();
                     }
+                    File.Move(tmp, path);
                     FixTimestamp(path);
                     return true;
-                }).ContinueWith((x) =>
-                {
-                    taskCount--;
-                    Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {taskCount}");
-                    return true;
                 });
+            task.ContinueWith((x) =>
+            {
+                taskCount--;
+                Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {taskCount}");
+
+                Tasks.Remove(task);
+                return true;
+            });
+            task.Start();
+            return task;
+        }
 
         private void WriteFile(string path, long zise)
         {
@@ -228,14 +273,15 @@ namespace Filler
                     f.LastWriteTime = Timestamp;
                    // f.Attributes |= FileAttributes.Hidden| FileAttributes.System;
                 }
-                rootDir.CreationTime = Timestamp;
-                rootDir.LastAccessTime = Timestamp;
-                rootDir.LastWriteTime = Timestamp;
+                try {
+                    rootDir.CreationTime = Timestamp;
+                    rootDir.LastAccessTime = Timestamp;
+                    rootDir.LastWriteTime = Timestamp;
+                }
+                catch {
+                }
             }
         }
-
-        bool created = false;
-
 
         private void Prepare()
         {
@@ -246,8 +292,19 @@ namespace Filler
                 rootDir.CreationTime = Timestamp;
                 rootDir.LastAccessTime = Timestamp;
                 rootDir.LastWriteTime = Timestamp;
-                created = true;
             }
+
+            tmpDir = new DirectoryInfo(rootDir.FullName.Substring(0, 3) + $"\\.wtmp..{Guid.NewGuid()}..");
+            if (!tmpDir.Exists) {
+                tmpDir.Create();
+                tmpDir.Refresh();
+                tmpDir.CreationTime = Timestamp;
+                tmpDir.LastAccessTime = Timestamp;
+                tmpDir.LastWriteTime = Timestamp;
+                tmpDir.Attributes |= System.IO.FileAttributes.Hidden | FileAttributes.System;
+            }
+            
+
             fileExt = txtFileExt.Text.Trim();
             writeBuffer = new byte[blockZise+1];
             MaxTask = int.Parse(txtTasks.Text.Trim());
