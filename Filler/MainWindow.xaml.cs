@@ -117,8 +117,6 @@ namespace Filler
         static DateTime Timestamp = new DateTime(1999, 12, 31, 23, 59, 0);
 
         byte[] writeBuffer = null;
-
-
         
         int taskCount {
             [MethodImpl(MethodImplOptions.Synchronized)]
