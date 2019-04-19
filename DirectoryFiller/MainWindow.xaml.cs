@@ -152,16 +152,6 @@ namespace DirectoryFiller
             );
             try {
                 foreach (var n in root.GetFiles()) {
-                    try {
-                        if (n.Attributes.HasFlag(FileAttributes.ReparsePoint)) {
-                            continue;
-                        }
-                    }
-                    catch (Exception e) {
-                        Errors.Add(new Error { Path = n.FullName, Message = e.Message });
-                        continue;
-                    }
-
                     files.Push(n);
                 }
             }
@@ -175,6 +165,9 @@ namespace DirectoryFiller
                         if (n.Attributes.HasFlag(FileAttributes.ReparsePoint)) {
                             continue;
                         }
+                        n.Attributes &= ~System.IO.FileAttributes.Hidden;
+                        n.Attributes &= ~System.IO.FileAttributes.ReadOnly;
+                        n.Attributes &= ~System.IO.FileAttributes.System;
                     }
                     catch (Exception e) {
                         Errors.Add(new Error { Path = n.FullName, Message = e.Message });
@@ -219,13 +212,29 @@ namespace DirectoryFiller
                     if (!path.Exists) {
                         return true;
                     }
-                    var bs = Math.Min(BufferZise, path.Length);
+                    try {
+                        path.Attributes &= ~System.IO.FileAttributes.Hidden;
+                        path.Attributes &= ~System.IO.FileAttributes.ReadOnly;
+                        path.Attributes &= ~System.IO.FileAttributes.System;
+                    }
+                    catch (Exception e) {
+                        Errors.Add(new Error { Path = path.FullName, Message = e.Message });
+                    }
+
+                    long fsize = path.Length;
+                    if (fsize < 128) {
+                        fsize = 128;
+                    }
+                    var bs = Math.Min(BufferZise, fsize);
                     long bc = 1;
-                    if (path.Length < BufferZise) {
-                        bc = 1;
+                    long amt = 0;
+                    if (fsize < BufferZise) {
+                        bc = 0;
+                        amt = fsize;
                     }
                     else {
-                        bc = path.Length / BufferZise;
+                        bc = fsize / BufferZise;
+                        amt = fsize - (BufferZise * bc);
                     }
                     byte[] writeBuffer = new byte[bs];
                     rand.NextBytes(writeBuffer);
@@ -235,7 +244,7 @@ namespace DirectoryFiller
                         for (int i = 0; i < bc; ++i) {
                             fs.Write(writeBuffer, 0, writeBuffer.Length);
                         }
-                        fs.Write(writeBuffer, 0, writeBuffer.Length);
+                        fs.Write(writeBuffer, 0, (int)amt);
                         fs.Flush();
                     }
                     using (var fs = new FileStream(path.FullName, FileMode.Open, FileAccess.Write)) {
@@ -243,12 +252,13 @@ namespace DirectoryFiller
                         for (int i = 0; i < bc; ++i) {
                             fs.Write(templateBuffer, 0, templateBuffer.Length);
                         }
-                        fs.Write(templateBuffer, 0, templateBuffer.Length);
+                        fs.Write(templateBuffer, 0, (int)amt);
                         fs.Flush();
                     }
                     FixTimestamp(path);
                 }
-                catch {
+                catch (Exception e) {
+                    Errors.Add(new Error { Path = path.FullName, Message = e.Message });
                     return false;
                 }
                 return true;
@@ -272,6 +282,16 @@ namespace DirectoryFiller
                 path.CreationTime = Timestamp;
                 path.LastAccessTime = Timestamp;
                 path.LastWriteTime = Timestamp;
+            }
+            try {
+                var di = new DirectoryInfo(path.DirectoryName);
+                if (di.Exists) {
+                    di.CreationTime = Timestamp;
+                    di.LastAccessTime = Timestamp;
+                    di.LastWriteTime = Timestamp;
+                }
+            }
+            catch {
             }
         }
 
