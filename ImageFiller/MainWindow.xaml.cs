@@ -29,7 +29,14 @@ namespace ImageFiller
             Guid = Guid.NewGuid();
         }
 
-
+        enum OutputFormat
+        {
+            PNG,
+            JPEG,
+            TIFF,
+            BMP
+        }
+        OutputFormat outputFormat = OutputFormat.PNG;
         bool running = false;
         private CancellationTokenSource tokenSource = null;
 
@@ -43,6 +50,19 @@ namespace ImageFiller
             [MethodImpl(MethodImplOptions.Synchronized)]
             set;
         } = new HashSet<Task<bool>>();
+
+        int taskCount;
+        int TaskCount {
+            [MethodImpl(MethodImplOptions.Synchronized)]
+            get => taskCount;
+            [MethodImpl(MethodImplOptions.Synchronized)]
+            set {
+                taskCount = value;
+                Dispatcher.Invoke(() => lblTaskCount.Content = $"Task: {taskCount}");
+            }
+        }
+
+        int MaxTask = 4;
 
         List<FileInfo> SourceFiles = new List<FileInfo>();
 
@@ -94,6 +114,10 @@ namespace ImageFiller
                     if (token.IsCancellationRequested) {
                         break;
                     }
+                    if (TaskCount >= MaxTask) {
+                        Thread.Sleep(100);
+                        continue;
+                    }
                     Dispatcher.Invoke(() =>
                     {
                         lblProgress.Content = $"{x.FullName} {n+1}/{SourceFiles.Count}";
@@ -132,35 +156,39 @@ namespace ImageFiller
                 return true;
             }
 
-            var destFile = new FileInfo(destDir.FullName + $"\\{orig.Name}");
+            var e = GetFileExt();
+
+            var destFile = new FileInfo(destDir.FullName + $"\\{orig.Name.Substring(0, orig.Name.LastIndexOf("."))}." + e);
             if (destFile.Exists) {
                 return true;
-            }
-
-            var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...png";
-            using (var src = orig.OpenRead()) {
-                var bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.CreateOptions = BitmapCreateOptions.None;
-                bitmap.StreamSource = src;
-                bitmap.DecodePixelWidth = 7680*2;
-                bitmap.DecodePixelHeight = 4320*2;
-                bitmap.EndInit();
-                bitmap.Freeze();
-
-                using (var dst = new FileStream(tmp, FileMode.OpenOrCreate, FileAccess.Write)) {
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
-                    encoder.Save(dst);
-                    dst.Flush();
-                }
             }
 
             Task<bool> task = null;
             task = new Task<bool>(() =>
             {
                 Tasks.Add(task);
+                TaskCount++;
+                var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...{e}";
+                using (var src = orig.OpenRead()) {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.CreateOptions = BitmapCreateOptions.None;
+                    bitmap.StreamSource = src;
+                    bitmap.DecodePixelWidth = 7680 * 2;
+                    bitmap.DecodePixelHeight = 4320 * 2;
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+
+                    using (var dst = new FileStream(tmp, FileMode.OpenOrCreate, FileAccess.Write)) {
+                        var encoder = GetEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                        encoder.Save(dst);
+                        encoder = null;
+                        dst.Flush();
+                    }
+                }
+
                 File.Move(tmp, destFile.FullName);
                 FixTimestamp(destFile.FullName);
                 return true;
@@ -168,11 +196,42 @@ namespace ImageFiller
             task.ContinueWith(x =>
             {
                 Tasks.Remove(task);
+                TaskCount--;
                 return true;
             });
             task.Start();
 
             return true;
+        }
+
+        BitmapEncoder GetEncoder()
+        {
+            switch (outputFormat) {
+                case OutputFormat.PNG:
+                    return new PngBitmapEncoder { };
+                case OutputFormat.JPEG:
+                    return new JpegBitmapEncoder { QualityLevel = 10 };
+                case OutputFormat.TIFF:
+                    return new TiffBitmapEncoder { Compression = TiffCompressOption.None };
+                case OutputFormat.BMP:
+                    return new BmpBitmapEncoder {  };
+            }
+            return new BmpBitmapEncoder();
+        }
+
+        string GetFileExt()
+        {
+            switch (outputFormat) {
+                case OutputFormat.PNG:
+                    return "png";
+                case OutputFormat.JPEG:
+                    return "jpg";
+                case OutputFormat.TIFF:
+                    return "tif";
+                case OutputFormat.BMP:
+                    return "bmp";
+            }
+            return "bmp";
         }
 
 
@@ -238,6 +297,16 @@ namespace ImageFiller
                 tmpDir.LastAccessTime = Timestamp;
                 tmpDir.LastWriteTime = Timestamp;
                 tmpDir.Attributes |= System.IO.FileAttributes.Hidden | FileAttributes.System;
+            }
+
+            foreach (var x in panel.Children) {
+                if (!(x is RadioButton)){
+                    continue;
+                }
+                if ((x as RadioButton).IsChecked ?? false) {
+                    outputFormat = (OutputFormat)Enum.Parse(typeof(OutputFormat), (x as RadioButton).Tag.ToString());
+                    break;
+                }
             }
         }
 

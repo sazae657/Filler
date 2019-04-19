@@ -14,6 +14,13 @@
         <Button x:Name="btnStart" Content="Start" HorizontalAlignment="Left" Margin="24,90,0,0" VerticalAlignment="Top" Width="75" Click="BtnStart_Click"/>
         <Label Name="lblProgress" Content="" Margin="22,130,10.333,0" VerticalAlignment="Top"/>
         <ProgressBar x:Name="progressBar" Height="29" Margin="24,161,10.333,0" VerticalAlignment="Top"/>
+        <StackPanel Name="panel" Orientation="Horizontal" Margin="110,90,0.333,0" Height="15" VerticalAlignment="Top">
+            <RadioButton Tag="PNG" Content="PNG" IsChecked="True" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <RadioButton Tag="JPEG" Content="JPEG" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <RadioButton Tag="TIFF" Content="TIFF" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <RadioButton Tag="BMP" Content="BMP" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        </StackPanel>
+        <Label Name="lblTaskCount" Content="" Margin="24,200,0,0" VerticalAlignment="Top" HorizontalAlignment="Left" Width="326"/>
 
     </Grid>
 </Window>
