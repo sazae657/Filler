@@ -317,5 +317,29 @@ namespace Filler
             }
             return -1;
         }
+
+        private void TxtDest_Drop(object sender, DragEventArgs e)
+        {
+            var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            string path = null;
+            if (files != null) {
+                foreach (var s in files) {
+                    path = s;
+                    break;
+                }
+            }
+            txtDest.Text = path;
+        }
+
+        private void TxtDest_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop, true)) {
+                e.Effects = DragDropEffects.Copy;
+            }
+            else {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
     }
 }
