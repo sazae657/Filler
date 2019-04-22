@@ -1,0 +1,18 @@
+﻿<Window x:Class="Dupe.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Dupe"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="296" Width="800">
+    <Grid>
+        <TextBox x:Name="txtSrc" Drop="TxtSrc_Drop" PreviewDragOver="TxtDest_PreviewDragOver" Height="23" Margin="40,55,8.333,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top"/>
+        <TextBox x:Name="txtDest" Drop="TxtDest_Drop"  PreviewDragOver="TxtDest_PreviewDragOver"  Height="23" Margin="40,100,10.333,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top"/>
+        <Label x:Name="lblState" Content="Label" Margin="26,145,10.333,0" VerticalAlignment="Top"/>
+        <ProgressBar x:Name="progressBar" Height="30" Margin="26,185,10.333,0" VerticalAlignment="Top"/>
+        <Button x:Name="btnStart" Content="Start" HorizontalAlignment="Left" Margin="26,10,0,0" VerticalAlignment="Top" Width="75" Click="BtnStart_Click"/>
+        <Label Content="元" HorizontalAlignment="Left" Margin="10,53,0,0" VerticalAlignment="Top"/>
+        <Label Content="先" HorizontalAlignment="Left" Margin="10,98,0,0" VerticalAlignment="Top"/>
+    </Grid>
+</Window>
