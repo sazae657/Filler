@@ -98,7 +98,7 @@ namespace Dupe
                     if (File.Exists(f)) {
                         continue;
                     }
-                    WriteFile(f);
+                    WriteFile(f, token);
                     Thread.Sleep(1);
                 }
             }, token).ContinueWith(t =>
@@ -127,7 +127,7 @@ namespace Dupe
         const long blockZise = 8192 * 1024;
         byte[] readBuffer = new byte[blockZise];
 
-        private bool WriteFile(string path)
+        private bool WriteFile(string path, CancellationToken token)
         {
             if (File.Exists(path)) {
                 return true;
@@ -137,6 +137,7 @@ namespace Dupe
             if (free < readBuffer.Length) {
                 return false;
             }
+            bool cancel = false; 
 
             var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...tmp";
             var fs = new FileStream(tmp, FileMode.OpenOrCreate);
@@ -148,6 +149,11 @@ namespace Dupe
                     if (s <= 0) {
                         break;
                     }
+                    if (token.IsCancellationRequested) {
+                        cancel = true;
+                        break;
+                    }
+
                     fs.Write(readBuffer, 0, s);
                 }
             }
@@ -160,8 +166,13 @@ namespace Dupe
                 fs.Close();
                 fs.Dispose();
                 fs = null;
-                File.Move(tmp, path);
-                FixTimestamp(path);
+                if (cancel) {
+                    File.Delete(tmp);
+                }
+                else {
+                    File.Move(tmp, path);
+                    FixTimestamp(path);
+                }
 
                 return true;
             });
