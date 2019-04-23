@@ -18,6 +18,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stamper", "Stamper\Stamper.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dupe", "Dupe\Dupe.csproj", "{FDDDA536-2302-4CB6-AF26-ABF9A8D29AFA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ﾆﾗ", "ﾆﾗ\ﾆﾗ.csproj", "{8007ACD9-0335-46D7-A249-EF1B883A7F1A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,6 +46,10 @@ Global
 		{FDDDA536-2302-4CB6-AF26-ABF9A8D29AFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FDDDA536-2302-4CB6-AF26-ABF9A8D29AFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FDDDA536-2302-4CB6-AF26-ABF9A8D29AFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8007ACD9-0335-46D7-A249-EF1B883A7F1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8007ACD9-0335-46D7-A249-EF1B883A7F1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8007ACD9-0335-46D7-A249-EF1B883A7F1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8007ACD9-0335-46D7-A249-EF1B883A7F1A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
