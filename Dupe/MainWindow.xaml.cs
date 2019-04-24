@@ -51,7 +51,7 @@ namespace Dupe
             set;
         } = new HashSet<Task<bool>>();
 
-        const int MaxTask = 4;
+        const int MaxTask = 2;
 
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
