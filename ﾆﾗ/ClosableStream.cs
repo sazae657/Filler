@@ -17,6 +17,9 @@ namespace ﾆﾗ
             this.stream = stream;
         }
 
+        public event EventHandler Closed;
+
+
         public override bool CanRead => stream.CanRead;
 
         public override bool CanSeek => stream.CanSeek;
@@ -38,5 +41,29 @@ namespace ﾆﾗ
         public override void SetLength(long value) => stream.SetLength(value);
 
         public override void Write(byte[] buffer, int offset, int count) => stream.Write(buffer, offset, count);
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+
+            if (null == stream || spool.StopRequested) {
+                CloseStream();
+                return;
+            }
+
+            spool.Schedule(t =>
+            {
+                CloseStream();
+            }, null);
+        }
+
+        private void CloseStream()
+        {
+            stream?.Flush();
+            stream?.Close();
+            stream?.Dispose();
+            stream = null;
+            Closed?.Invoke(this, null);
+        }
     }
 }

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DirectoryFiller"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="261" Width="800">
     <Grid>
         <Button x:Name="btnStart" Content="Start" HorizontalAlignment="Left" Margin="25,25,0,0" VerticalAlignment="Top" Width="135" Height="30" Click="BtnStart_Click"/>
         <TextBox Drop="TxtSrc_Drop" PreviewDragOver="TxtSrc_PreviewDragOver" x:Name="txtSrc" Height="25" Margin="25,75,10.333,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top"/>

@@ -16,7 +16,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-
+using ﾆﾗ;
 namespace DirectoryFiller
 {
     /// <summary>
@@ -38,13 +38,15 @@ namespace DirectoryFiller
 
         DirectoryInfo rootDir = null;
         Stack<FileInfo> files = null;
+        UltraSuperSpool spool = new UltraSuperSpool();
+
         List<Error> Errors {
             [MethodImpl(MethodImplOptions.Synchronized)]
             get;
             [MethodImpl(MethodImplOptions.Synchronized)]
             set;
         }
-
+        
         private void BtnStart_Click(object sender, RoutedEventArgs e)
         {
             if (running) {
@@ -59,6 +61,8 @@ namespace DirectoryFiller
             if (MessageBox.Show($"{rootDir}: まじで？", "まじで？", MessageBoxButton.OKCancel) != MessageBoxResult.OK) {
                 return;
             }
+            spool.Omit();
+
             Errors = new List<Error>();
             btnStart.Content = "Stop";
             btnStart.IsEnabled = false;
@@ -87,7 +91,7 @@ namespace DirectoryFiller
                     if (files.Count == 0) {
                         break;
                     }
-                    if (taskCount >= MaxTask) {
+                    if (spool.TaskCount >= MaxTask) {
                         Thread.Sleep(10);
                         continue;
                     }
@@ -112,9 +116,10 @@ namespace DirectoryFiller
                 {
                     lblProgress.Content = $"完了待ち";
                 });
-                foreach (var n in Tasks.ToArray()) {
-                    var boo = n?.Result;
-                }
+
+                spool.Stop();
+                spool.Wait();
+
                 SaveLog();
                 Dispatcher.Invoke(() =>
                 {
@@ -184,33 +189,17 @@ namespace DirectoryFiller
 
         int MaxTask = 4;
 
-        HashSet<Task<bool>> Tasks {
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            get;
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            set;
-        } = new HashSet<Task<bool>>();
-
-        int taskCount {
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            get;
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            set;
-        } = 0;
         Random rand = new Random();
         const int BufferZise = 10485760;
         byte[] templateBuffer;
 
-        private Task<bool> WriteFileAsync(FileInfo path)
+        private void WriteFileAsync(FileInfo path)
         {
-            Task<bool> task = null;
-            task = new Task<bool>(() =>
+            spool.Schedule(token =>
             {
-                Tasks.Add(task);
-                taskCount++;
                 try {
                     if (!path.Exists) {
-                        return true;
+                        return;
                     }
                     try {
                         path.Attributes &= ~System.IO.FileAttributes.Hidden;
@@ -243,6 +232,9 @@ namespace DirectoryFiller
                         fs.Seek(0, SeekOrigin.Begin);
                         for (int i = 0; i < bc; ++i) {
                             fs.Write(writeBuffer, 0, writeBuffer.Length);
+                            if (token.IsCancellationRequested) {
+                                break;
+                            }
                         }
                         fs.Write(writeBuffer, 0, (int)amt);
                         fs.Flush();
@@ -251,49 +243,24 @@ namespace DirectoryFiller
                         fs.Seek(0, SeekOrigin.Begin);
                         for (int i = 0; i < bc; ++i) {
                             fs.Write(templateBuffer, 0, templateBuffer.Length);
+                            if (token.IsCancellationRequested) {
+                                break;
+                            }
                         }
                         fs.Write(templateBuffer, 0, (int)amt);
                         fs.Flush();
                     }
-                    FixTimestamp(path);
+                    Nira.FixTimestamp(path, Timestamp);
+                    Nira.FixTimestamp(path.Directory, Timestamp);
                 }
                 catch (Exception e) {
                     Errors.Add(new Error { Path = path.FullName, Message = e.Message });
-                    return false;
                 }
-                return true;
-            });
-            task.ContinueWith((x) =>
-            {
-                taskCount--;
-                Tasks.Remove(task);
-                return true;
-            });
-            task.Start();
-            return task;
+            }, null);
         }
 
         object obzekt = new object();
         static DateTime Timestamp = new DateTime(1999, 12, 31, 23, 59, 0);
-
-        private void FixTimestamp(FileInfo path)
-        {
-            if (path.Exists) {
-                path.CreationTime = Timestamp;
-                path.LastAccessTime = Timestamp;
-                path.LastWriteTime = Timestamp;
-            }
-            try {
-                var di = new DirectoryInfo(path.DirectoryName);
-                if (di.Exists) {
-                    di.CreationTime = Timestamp;
-                    di.LastAccessTime = Timestamp;
-                    di.LastWriteTime = Timestamp;
-                }
-            }
-            catch {
-            }
-        }
 
         private bool Prepare()
         {

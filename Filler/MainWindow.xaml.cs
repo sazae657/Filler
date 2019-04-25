@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -15,6 +16,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using ﾆﾗ;
 
 namespace Filler
 {
@@ -33,6 +35,7 @@ namespace Filler
 
         bool running = false;
         private CancellationTokenSource tokenSource = null;
+        UltraSuperSpool spool = new UltraSuperSpool();
 
         DirectoryInfo rootDir = null;
         DirectoryInfo tmpDir = null;
@@ -54,7 +57,7 @@ namespace Filler
                 tokenSource = new CancellationTokenSource();
             }
             var token = tokenSource.Token;
-
+            spool.Omit();
             Task.Factory.StartNew(() =>
             {
                 Dispatcher.Invoke(() => btnStart.IsEnabled = true);
@@ -66,20 +69,20 @@ namespace Filler
                     if (MaxTask <= 0) {
                         n++;
                         var f = System.IO.Path.Combine(rootDir.FullName, $"{n:D16}.{fileExt}");
-                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{GetTotalFreeSpace(rootDir.FullName)}");
+                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{Nira.GetDriveFreeSpace(rootDir.FullName)}");
                         if (File.Exists(f)) {
                             continue;
                         }
                         WriteFile(f);
                     }
                     else {
-                        if (taskCount >= MaxTask) {
+                        if (spool.TaskCount >= MaxTask) {
                             Thread.Sleep(100);
                             continue;
                         }
                         n++;
                         var f = System.IO.Path.Combine(rootDir.FullName, $"{n:D16}.{fileExt}");
-                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{GetTotalFreeSpace(rootDir.FullName)}");
+                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{Nira.GetDriveFreeSpace(rootDir.FullName)}");
                         if (File.Exists(f)) {
                             continue;
                         }
@@ -92,10 +95,9 @@ namespace Filler
                 tokenSource.Dispose();
                 tokenSource = null;
                 running = false;
+                spool.Stop();
+                spool.Wait();
 
-                foreach (var n in Tasks.ToArray()) {
-                    var boo = n.Result;
-                }
                 if (tmpDir.Exists) {
                     tmpDir.Delete();
                 }
@@ -114,30 +116,15 @@ namespace Filler
         const long blockCount = 1024;
         int MaxTask = 2;
 
-        static DateTime Timestamp = new DateTime(1999, 12, 31, 23, 59, 0);
-
         byte[] writeBuffer = null;
-        
-        int taskCount {
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            get;
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            set; } =0;
-
-        HashSet<Task<bool>> Tasks {
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            get;
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            set;
-        } = new HashSet<Task<bool>>();
-    
+            
         private bool WriteFileSync(string path)
         {
             if (File.Exists(path)) {
                 return true;
             }
 
-            var free = GetTotalFreeSpace(rootDir.FullName);
+            var free = Nira.GetDriveFreeSpace(rootDir.FullName);
             if (free < blockZise * blockCount) {
                 WriteFile(path, free);
                 return false;
@@ -165,7 +152,7 @@ namespace Filler
                 return true;
             }
 
-            var free = GetTotalFreeSpace(rootDir.FullName);
+            var free = Nira.GetDriveFreeSpace(rootDir.FullName);
             if (free < blockZise * blockCount) {
                 WriteFile(path, free);
                 return false;
@@ -174,79 +161,59 @@ namespace Filler
 
             rand.NextBytes(writeBuffer);
             var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...mp4";
-            var fs = new FileStream(tmp, FileMode.OpenOrCreate);
-            for (int i = 0; i < blockCount; ++i) {
-                if ((i % 10) == 0) {
-                    Dispatcher.Invoke(() => lblFileStat.Content = $"{path} {i}/{blockCount}");
+            using (var fs = spool.CreateClosableStream(new FileStream(tmp, FileMode.OpenOrCreate))) {
+                fs.Closed += (e, v) =>
+                {
+                    File.Move(tmp, path);
+                    FixTimestamp(path);
+                };
+
+                for (int i = 0; i < blockCount; ++i) {
+                    if ((i % 10) == 0) {
+                        Dispatcher.Invoke(() => lblFileStat.Content = $"{path} {i}/{blockCount}");
+                    }
+                    fs.Write(writeBuffer, 0, writeBuffer.Length);
                 }
-                fs.Write(writeBuffer, 0, writeBuffer.Length);
             }
-            Task<bool> task = null;
-            task = new Task<bool>(() =>
-            {
-                Tasks.Add(task);
-                taskCount++;
-
-                fs.Flush();
-                fs.Close();
-                fs.Dispose();
-                fs = null;
-                File.Move(tmp, path);
-                FixTimestamp(path);
-
-                return true;
-            });
-            task.ContinueWith(x =>
-             {
-                 taskCount--;
-                 Tasks.Remove(task);
-                 return true;
-             });
-            task.Start();
-
             return true;
         }
 
-        private Task<bool> WriteFileAsync(string path)
+        private void WriteFileAsync(string path)
         {
-            Task<bool> task = null;
-            task = new Task<bool>(() =>
+            spool.Schedule(token =>
                 {
-                    Tasks.Add(task);
-                    taskCount++;
-                    Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {taskCount}");
+                    bool cancel = false;
+                    Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {spool.TaskCount}");
 
                     if (File.Exists(path)) {
-                        return true;
+                        return;
                     }
 
-                    var free = GetTotalFreeSpace(rootDir.FullName);
+                    var free = Nira.GetDriveFreeSpace(rootDir.FullName);
                     if (free < blockZise * blockCount) {
                         WriteFile(path, free);
-                        return false;
+                        return;
                     }
                     rand.NextBytes(writeBuffer);
                     var tmp = tmpDir.FullName + $"\\{Guid.NewGuid().ToString()}...mp4";
                     using (var fs = new FileStream(tmp, FileMode.OpenOrCreate)) {
                         for (int i = 0; i < blockCount; ++i) {
+                            if (token.IsCancellationRequested) {
+                                cancel = true;
+                                Debug.WriteLine($"CancellationRequested");
+                                break;
+                            }
                             fs.Write(writeBuffer, 0, writeBuffer.Length);
                         }
                         fs.Flush();
                     }
                     File.Move(tmp, path);
                     FixTimestamp(path);
-                    return true;
-                });
-            task.ContinueWith((x) =>
-            {
-                taskCount--;
-                Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {taskCount}");
-
-                Tasks.Remove(task);
-                return true;
+                    return;
+                }, 
+                token => {
+                    Dispatcher.Invoke(() => lblFileStat.Content = $"Task: {spool.TaskCount}");
             });
-            task.Start();
-            return task;
         }
 
         private void WriteFile(string path, long zise)
@@ -266,20 +233,8 @@ namespace Filler
         private void FixTimestamp(string path)
         {
             lock (obzekt) {
-                var f = new FileInfo(path);
-                if (f.Exists) {
-                    f.CreationTime = Timestamp;
-                    f.LastAccessTime = Timestamp;
-                    f.LastWriteTime = Timestamp;
-                   // f.Attributes |= FileAttributes.Hidden| FileAttributes.System;
-                }
-                try {
-                    rootDir.CreationTime = Timestamp;
-                    rootDir.LastAccessTime = Timestamp;
-                    rootDir.LastWriteTime = Timestamp;
-                }
-                catch {
-                }
+                Nira.FixTimestamp(new FileInfo(path));
+                Nira.FixTimestamp(rootDir);
             }
         }
 
@@ -289,35 +244,22 @@ namespace Filler
             if (!rootDir.Exists) {
                 rootDir.Create();
                 rootDir.Refresh();
-                rootDir.CreationTime = Timestamp;
-                rootDir.LastAccessTime = Timestamp;
-                rootDir.LastWriteTime = Timestamp;
+                Nira.FixTimestamp(rootDir);
             }
 
             tmpDir = new DirectoryInfo(rootDir.FullName.Substring(0, 3) + $"\\.wtmp..{Guid.NewGuid()}..");
             if (!tmpDir.Exists) {
                 tmpDir.Create();
                 tmpDir.Refresh();
-                tmpDir.CreationTime = Timestamp;
-                tmpDir.LastAccessTime = Timestamp;
-                tmpDir.LastWriteTime = Timestamp;
+                Nira.FixTimestamp(tmpDir);
+                #if !DEBUG
                 tmpDir.Attributes |= System.IO.FileAttributes.Hidden | FileAttributes.System;
+                #endif
             }
             
-
             fileExt = txtFileExt.Text.Trim();
             writeBuffer = new byte[blockZise+1];
             MaxTask = int.Parse(txtTasks.Text.Trim());
-        }
-
-        private long GetTotalFreeSpace(string driveName)
-        {
-            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
-                if (drive.IsReady && driveName.StartsWith(drive.Name)) {
-                    return drive.TotalFreeSpace;
-                }
-            }
-            return -1;
         }
 
         private void TxtDest_Drop(object sender, DragEventArgs e)
@@ -342,6 +284,13 @@ namespace Filler
                 e.Effects = DragDropEffects.None;
             }
             e.Handled = true;
+        }
+
+        private void TxtDest_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (null != diskInfo) {
+                diskInfo.Drive = txtDest.Text;
+            }
         }
     }
 }

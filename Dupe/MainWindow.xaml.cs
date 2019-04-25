@@ -15,6 +15,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using ﾆﾗ;
 
 namespace Dupe
 {
@@ -93,7 +94,7 @@ namespace Dupe
                     var f = System.IO.Path.Combine(rootDir.FullName, $"{n:D16}{inputFile.Extension}");
                     Dispatcher.Invoke(() => {
                         progressBar.Value = 0;
-                        lblState.Content = $"{f} Free:{GetTotalFreeSpace(rootDir.FullName)}";
+                        lblState.Content = $"{f} Free:{Nira.GetDriveFreeSpace(rootDir.FullName)}";
                     });
                     if (File.Exists(f)) {
                         continue;
@@ -133,7 +134,7 @@ namespace Dupe
                 return true;
             }
 
-            var free = GetTotalFreeSpace(rootDir.FullName);
+            var free = Nira.GetDriveFreeSpace(rootDir.FullName);
             if (free < readBuffer.Length) {
                 return false;
             }
@@ -229,16 +230,6 @@ namespace Dupe
                 tmpDir.LastWriteTime = Timestamp;
                 tmpDir.Attributes |= System.IO.FileAttributes.Hidden | FileAttributes.System;
             }
-        }
-
-        private long GetTotalFreeSpace(string driveName)
-        {
-            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
-                if (drive.IsReady && driveName.StartsWith(drive.Name)) {
-                    return drive.TotalFreeSpace;
-                }
-            }
-            return -1;
         }
 
         private void TxtDest_Drop(object sender, DragEventArgs e)
