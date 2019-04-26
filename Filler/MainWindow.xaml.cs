@@ -80,9 +80,14 @@ namespace Filler
                             Thread.Sleep(100);
                             continue;
                         }
+                        var dfs = Nira.GetDriveFreeSpace(rootDir.FullName);
+                        if (dfs < 10) {
+                            break;
+                        }
+
                         n++;
                         var f = System.IO.Path.Combine(rootDir.FullName, $"{n:D16}.{fileExt}");
-                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{Nira.GetDriveFreeSpace(rootDir.FullName)}");
+                        Dispatcher.Invoke(() => lblProgress.Content = $"{f} Free:{dfs}");
                         if (File.Exists(f)) {
                             continue;
                         }

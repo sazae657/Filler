@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -27,13 +28,44 @@ namespace DirectoryFiller
         public MainWindow()
         {
             InitializeComponent();
+            MaxTask = Math.Max(Environment.ProcessorCount - 1, 1);
         }
         public class Error {
             public string Path { get; set; }
             public string Message { get; set; }
         }
 
+        public class TaskInfo : IEquatable<TaskInfo>
+        {
+            FileInfo path;
+            string smp;
+            public FileInfo Path {
+                get => path;
+                set {
+                    path = value;
+                    smp = value.FullName;
+                }
+            }
+            public long Size { get; set; }
+
+            public override bool Equals(object other)
+            {
+                if (other is TaskInfo) {
+                    return this.Equals(other as TaskInfo);
+                }
+                return base.Equals(other);
+            }
+
+            public override int GetHashCode() => smp.GetHashCode();
+
+            public bool Equals(TaskInfo other) => smp.Equals(other.smp);
+        }
+
         bool running = false;
+        bool runOraora = false;
+        long lastTtl = 0;
+        long lastProcCount = 0;
+        long filesPerSec = 0;
         private CancellationTokenSource tokenSource = null;
 
         DirectoryInfo rootDir = null;
@@ -80,6 +112,9 @@ namespace DirectoryFiller
                 SearchFiles(rootDir, token);
                 long n = 0;
                 long max = files.Count;
+                lastTtl = Nira.TimeGetTime();
+                lastProcCount = 0;
+                filesPerSec = 0;
                 Dispatcher.Invoke(() => {
                     progressBar.Minimum = 0;
                     progressBar.Maximum = files.Count;
@@ -190,8 +225,27 @@ namespace DirectoryFiller
         int MaxTask = 4;
 
         Random rand = new Random();
-        const int BufferZise = 10485760;
+        const int BufferZise = 67108864;
         byte[] templateBuffer;
+        
+
+        private void AddStadium(FileInfo path)
+        {
+            lock (obzekt) {
+                lastProcCount++;
+            }
+        }
+
+        private void RemoveStadium(FileInfo path) {
+            lock (obzekt) {
+                if ((Nira.TimeGetTime() - lastTtl) > 1000) {
+                    filesPerSec = lastProcCount;
+                    lastProcCount = 0;
+                    lastTtl = Nira.TimeGetTime();
+                }
+                lblTasks.Content = $"Thread: {spool.TaskCount}  {filesPerSec} file/sec";
+            }
+        }
 
         private void WriteFileAsync(FileInfo path)
         {
@@ -201,6 +255,8 @@ namespace DirectoryFiller
                     if (!path.Exists) {
                         return;
                     }
+                    Dispatcher.Invoke(() => AddStadium(path));
+
                     try {
                         path.Attributes &= ~System.IO.FileAttributes.Hidden;
                         path.Attributes &= ~System.IO.FileAttributes.ReadOnly;
@@ -239,24 +295,28 @@ namespace DirectoryFiller
                         fs.Write(writeBuffer, 0, (int)amt);
                         fs.Flush();
                     }
-                    using (var fs = new FileStream(path.FullName, FileMode.Open, FileAccess.Write)) {
-                        fs.Seek(0, SeekOrigin.Begin);
-                        for (int i = 0; i < bc; ++i) {
-                            fs.Write(templateBuffer, 0, templateBuffer.Length);
-                            if (token.IsCancellationRequested) {
-                                break;
+                    if (runOraora) {
+                        using (var fs = new FileStream(path.FullName, FileMode.Open, FileAccess.Write)) {
+                            fs.Seek(0, SeekOrigin.Begin);
+                            for (int i = 0; i < bc; ++i) {
+                                fs.Write(templateBuffer, 0, templateBuffer.Length);
+                                if (token.IsCancellationRequested) {
+                                    break;
+                                }
                             }
+                            fs.Write(templateBuffer, 0, (int)amt);
+                            fs.Flush();
                         }
-                        fs.Write(templateBuffer, 0, (int)amt);
-                        fs.Flush();
                     }
+                    writeBuffer = null;
                     Nira.FixTimestamp(path, Timestamp);
                     Nira.FixTimestamp(path.Directory, Timestamp);
                 }
                 catch (Exception e) {
                     Errors.Add(new Error { Path = path.FullName, Message = e.Message });
                 }
-            }, null);
+            }, 
+            token => Dispatcher.Invoke(() => RemoveStadium(path)));
         }
 
         object obzekt = new object();
@@ -264,6 +324,8 @@ namespace DirectoryFiller
 
         private bool Prepare()
         {
+            runOraora = cbOraOra.IsChecked ?? false;
+
             rootDir = new DirectoryInfo(txtSrc.Text.Trim());
             if (!rootDir.Exists) {
                 MessageBox.Show($"{rootDir}: 無い");

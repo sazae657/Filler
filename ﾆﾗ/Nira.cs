@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace ﾆﾗ
 {
@@ -7,6 +8,14 @@ namespace ﾆﾗ
 
     public class Nira
     {
+        static class NativeMethods
+        {
+            [DllImport("winmm.dll")]
+            public static extern uint timeGetTime();
+        }
+
+        public static long TimeGetTime() => NativeMethods.timeGetTime();
+
         public static long GetDriveFreeSpace(string path)
         {
             foreach (var drive in DriveInfo.GetDrives()) {

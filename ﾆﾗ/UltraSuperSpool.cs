@@ -13,13 +13,14 @@ namespace ﾆﾗ
     public delegate void UltraSuperDelegatey(CancellationToken token);
 
     public class UltraSuperSpool : IDisposable
-    {       
+    {
+        object obzekt = new object();
+        HashSet<Task<bool>> tasks;
         protected HashSet<Task<bool>> Tasks {
             [MethodImpl(MethodImplOptions.Synchronized)]
-            get;
-            [MethodImpl(MethodImplOptions.Synchronized)]
-            private set;
-        } = new HashSet<Task<bool>>();
+            get => tasks;
+        }
+
 
         public int TaskCount {
             [MethodImpl(MethodImplOptions.Synchronized)]
@@ -51,9 +52,25 @@ namespace ﾆﾗ
             }
         }
 
+        private void AddTask(Task<bool> task)
+        {
+            lock (obzekt) {
+                tasks.Add(task);
+                TaskCount++;
+            }
+        }
+
+        private void RemveTask(Task<bool> task)
+        {
+            lock (obzekt) {
+                tasks.Remove(task);
+                TaskCount--;
+            }
+        }
+
         public void Omit()
         {
-            Tasks = new HashSet<Task<bool>>();
+            tasks = new HashSet<Task<bool>>();
             TaskCount = 0;
             cancellationTokenSource?.Dispose();
             cancellationTokenSource = new CancellationTokenSource();
@@ -64,7 +81,9 @@ namespace ﾆﾗ
         {           
             var boo = new List<bool>();
             foreach (var n in Tasks.ToArray()) {
-                boo.Add(n.Result);
+                if (null != n) {
+                    boo.Add(n.Result);
+                }
             }
             return boo;
         }
@@ -84,15 +103,13 @@ namespace ﾆﾗ
             Task<bool> task = null;
             task = new Task<bool>(() =>
             {
-                Tasks.Add(task);
-                TaskCount++;
+                AddTask(task);
                 delegatey?.Invoke(token);
                 return true;
             }, token);
             task.ContinueWith(x =>
             {
-                Tasks.Remove(task);
-                TaskCount--;
+                RemveTask(task);
                 completed?.Invoke(token);
                 return true;
             });

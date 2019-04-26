@@ -35,6 +35,7 @@ namespace Stamper
         bool running = false;
         CancellationTokenSource tokenSource = null;
         DateTime fileTime;
+
         public class Error
         {
             public string Path { get; set; }
@@ -88,6 +89,7 @@ namespace Stamper
                 ScanAndFix(rootDir, token);
             }, token).ContinueWith(t =>
             {
+                FixTimestamp(rootDir);
                 tokenSource.Dispose();
                 tokenSource = null;
                 running = false;
