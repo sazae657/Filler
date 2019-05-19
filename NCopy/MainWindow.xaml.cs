@@ -73,6 +73,7 @@ namespace NCopy
             }).ContinueWith(x =>
             {
                 Dispatcher.Invoke(()=>{
+                    running = false;
                     btnStart.IsEnabled = true;
                     fileList.Clear();
                     progressBar.Value = 0;
