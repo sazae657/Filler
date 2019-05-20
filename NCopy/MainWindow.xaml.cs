@@ -130,6 +130,7 @@ namespace NCopy
                     fileList.Add(n);
                 }
             }
+            lblProgress.Content = $"{fileList.Count}";
         }
 
         private void ListVox_KeyUp(object sender, KeyEventArgs e)
@@ -139,6 +140,16 @@ namespace NCopy
             }
 
             fileList.RemoveAt(listVox.SelectedIndex);
+        }
+
+        private void ChkAlwaysTop_Checked(object sender, RoutedEventArgs e)
+        {
+            Topmost = true;
+        }
+
+        private void ChkAlwaysTop_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Topmost = false;
         }
     }
 }
