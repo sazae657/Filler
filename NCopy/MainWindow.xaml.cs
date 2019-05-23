@@ -53,11 +53,12 @@ namespace NCopy
             progressBar.Minimum = 0;
             progressBar.Maximum = fileList.Count;
             running = true;
+            var autoRename = chkAutoRename.IsChecked;
             Task.Factory.StartNew(() =>
             {
                 int i = 0;
                 foreach (var n in fileList) {
-                    var dest = System.IO.Path.Combine(destDir.FullName, n.Name);
+                    var dest = new FileInfo(System.IO.Path.Combine(destDir.FullName, n.Name));
                     Dispatcher.Invoke(() =>
                     {
                         lblProgress.Content = dest;
@@ -65,10 +66,19 @@ namespace NCopy
                         listVox.SelectedIndex = i;
                     });
                     i++;
-                    if (File.Exists(dest)) {
+                    if (!n.Exists || n.FullName.Equals(dest.FullName, StringComparison.OrdinalIgnoreCase)) {
                         continue;
                     }
-                    File.Copy(n.FullName, dest);
+
+                    if (dest.Exists) {
+                        if (CompareFile(n, dest)) {
+                            continue;
+                        }
+                        if ((dest = Rename(dest.FullName)) == null) {
+                            continue;
+                        }
+                    }
+                    File.Copy(n.FullName, dest.FullName);
                 }
             }).ContinueWith(x =>
             {
@@ -81,6 +91,56 @@ namespace NCopy
                 });
             });
         }
+
+        FileInfo Rename(string name)
+        {
+            var src = new FileInfo(name);
+            var ei = name.LastIndexOf('.');
+            string ext = null;
+            if (ei > 0) {
+                ext = name.Substring(ei);
+                name = name.Substring(0, ei);
+            }
+            long n = 0;
+            while (true) {
+                var t = new FileInfo($"{name}_{n:0000}{ext}");
+                if (!t.Exists) {
+                    return t;
+                }
+                if (CompareFile(src, t)) {
+                    return null;
+                }
+                n++;
+            }
+        }
+
+        byte[] CalcHash(FileInfo path)
+        {
+            using (var sha = new System.Security.Cryptography.SHA512CryptoServiceProvider())
+            using (var fs = new FileStream(path.FullName, FileMode.Open, FileAccess.Read)) {
+                return sha.ComputeHash(fs);
+            }
+        }
+
+        bool CompareFile(FileInfo path1, FileInfo path2)
+        {
+            if (path1.Length != path2.Length) {
+                return false;
+            }
+            var h1 = CalcHash(path1);
+            var h2 = CalcHash(path2);
+            if (h1.Length != h2.Length) {
+                return false;
+            }
+
+            for (var i = 0; i < h1.Length; ++i) {
+                if (h1[i] != h2[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
 
         private void TxtDest_Drop(object sender, DragEventArgs e)
         {
