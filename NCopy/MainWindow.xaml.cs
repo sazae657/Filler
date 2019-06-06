@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using ﾆﾗ;
 
 namespace NCopy
 {
@@ -71,7 +72,7 @@ namespace NCopy
                     }
 
                     if (dest.Exists) {
-                        if (CompareFile(n, dest)) {
+                        if (葱.比較(n, dest)) {
                             continue;
                         }
                         if ((dest = Rename(dest.FullName)) == null) {
@@ -107,38 +108,11 @@ namespace NCopy
                 if (!t.Exists) {
                     return t;
                 }
-                if (CompareFile(src, t)) {
+                if (葱.比較(src, t)) {
                     return null;
                 }
                 n++;
             }
-        }
-
-        byte[] CalcHash(FileInfo path)
-        {
-            using (var sha = new System.Security.Cryptography.SHA512CryptoServiceProvider())
-            using (var fs = new FileStream(path.FullName, FileMode.Open, FileAccess.Read)) {
-                return sha.ComputeHash(fs);
-            }
-        }
-
-        bool CompareFile(FileInfo path1, FileInfo path2)
-        {
-            if (path1.Length != path2.Length) {
-                return false;
-            }
-            var h1 = CalcHash(path1);
-            var h2 = CalcHash(path2);
-            if (h1.Length != h2.Length) {
-                return false;
-            }
-
-            for (var i = 0; i < h1.Length; ++i) {
-                if (h1[i] != h2[i]) {
-                    return false;
-                }
-            }
-            return true;
         }
 
 

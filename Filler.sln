@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NiraControl", "NiraControl\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NCopy", "NCopy\NCopy.csproj", "{12C79609-E5AA-4A7E-A814-0146B88167B9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dropper", "Dropper\Dropper.csproj", "{8C4D6F0E-92FC-498A-9260-B75AB65BF743}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -62,6 +64,10 @@ Global
 		{12C79609-E5AA-4A7E-A814-0146B88167B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{12C79609-E5AA-4A7E-A814-0146B88167B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{12C79609-E5AA-4A7E-A814-0146B88167B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C4D6F0E-92FC-498A-9260-B75AB65BF743}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C4D6F0E-92FC-498A-9260-B75AB65BF743}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C4D6F0E-92FC-498A-9260-B75AB65BF743}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C4D6F0E-92FC-498A-9260-B75AB65BF743}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

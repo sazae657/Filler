@@ -1,0 +1,32 @@
+﻿<Window x:Class="Dropper.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Dropper"
+        mc:Ignorable="d"
+        AllowDrop="True"
+        PreviewDragOver="Window_PreviewDragOver"
+        Drop="Window_Drop"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing"
+        Title="Dropper" Height="202" Width="409">
+    <Grid>
+        <TextBlock Margin="25,25,0,0" TextWrapping="Wrap" Text="移動先" VerticalAlignment="Top" Height="15" HorizontalAlignment="Left" Width="75"/>
+        <ComboBox PreviewDragOver="Window_PreviewDragOver"
+                 Drop="TextBox_Drop"
+                 IsEditable="True"
+                  Text="{Binding Dest.Value}"
+                 ItemsSource="{Binding History}"
+                 Margin="25,45,10,0" VerticalAlignment="Top" FontSize="16">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding}" FontSize="16" />
+                    </StackPanel>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+    </Grid>
+</Window>
