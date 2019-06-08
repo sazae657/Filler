@@ -7,18 +7,26 @@
         mc:Ignorable="d"
         AllowDrop="True"
         PreviewDragOver="Window_PreviewDragOver"
+        DragEnter="Window_DragEnter"
+        DragLeave="Window_DragLeave"
         Drop="Window_Drop"
         Loaded="Window_Loaded"
         Closing="Window_Closing"
-        Title="Dropper" Height="202" Width="409">
+        Topmost="{Binding TopMost.Value, Mode=OneWay}"
+        Title="Dropper" Height="236" Width="353.167">
     <Grid>
-        <TextBlock Margin="25,25,0,0" TextWrapping="Wrap" Text="移動先" VerticalAlignment="Top" Height="15" HorizontalAlignment="Left" Width="75"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>
+            <RowDefinition/>
+            <RowDefinition Height="18"/>
+        </Grid.RowDefinitions>
+        <TextBlock Margin="10,3,0,0" TextWrapping="Wrap" Text="先" VerticalAlignment="Top" Height="15" HorizontalAlignment="Left" Width="75"/>
         <ComboBox PreviewDragOver="Window_PreviewDragOver"
                  Drop="TextBox_Drop"
                  IsEditable="True"
                   Text="{Binding Dest.Value}"
                  ItemsSource="{Binding History}"
-                 Margin="25,45,10,0" VerticalAlignment="Top" FontSize="16">
+                 Margin="5,25,9.667,0" VerticalAlignment="Top" FontSize="16" Height="27">
             <ComboBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal">
@@ -27,6 +35,10 @@
                 </DataTemplate>
             </ComboBox.ItemTemplate>
         </ComboBox>
+        <CheckBox Content="移動" IsChecked="{Binding Move.Value}" HorizontalAlignment="Left" Margin="90,4,0,0" VerticalAlignment="Top" Height="15" Width="44"/>
+        <ProgressBar Minimum="0" Maximum="{Binding TotalFiles.Value}" Value="{Binding Progress.Value}" Margin="5,0,9.667,3.667" Grid.Row="2" Height="10" VerticalAlignment="Bottom"/>
+        <Rectangle Fill="{Binding RectColor.Value, Mode=OneWay}" Margin="5,2,9.667,0.667" Stroke="Black" Grid.Row="1"/>
+        <CheckBox Content="手前"  IsChecked="{Binding TopMost.Value}" HorizontalAlignment="Right" Margin="0,6,9.667,0" VerticalAlignment="Top"/>
 
     </Grid>
 </Window>

@@ -29,14 +29,34 @@ namespace Dropper
             InitializeComponent();
             Dest = new RejectablePrperty<string>();
             History = new ObservableCollection<string>();
+            Move = new RejectablePrperty<bool>();
+            Move.Value = true;
+
+            RectColor = new RejectablePrperty<Brush>();
+            RectColor.Value = Brushes.White;
+
+            TopMost = new RejectablePrperty<bool>();
+            TopMost.Value = false;
+
+            TotalFiles = new RejectablePrperty<int>();
+            Progress = new RejectablePrperty<int>();
+
             DataContext = this;
             spool = new UltraSuperSpool();
             spool.Omit();
         }
         public RejectablePrperty<string> Dest { get; set; }
+        public RejectablePrperty<bool> Move { get; set; }
+
+        public RejectablePrperty<bool> TopMost { get; set; }
+
+        public RejectablePrperty<int> TotalFiles { get; set; }
+        public RejectablePrperty<int> Progress { get; set; }
+
         public ObservableCollection<string> History { get; set; }
         UltraSuperSpool spool;
 
+        public RejectablePrperty<Brush> RectColor { get; set; }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -66,6 +86,8 @@ namespace Dropper
             d.Save(葱.ｸﾞﾛーﾊﾞﾙ設定ﾌｧｲﾙ作成("Dropper.xml"));
         }
 
+        bool busy = false;
+
         private void Window_Drop(object sender, DragEventArgs e)
         {
             if (string.IsNullOrEmpty(Dest.Value)) {
@@ -73,27 +95,46 @@ namespace Dropper
                 return;
             }
             var dest = Dest.Value;
-            foreach (var n in
-                from k in e.Data.GetData(DataFormats.FileDrop) as string[]
-                where File.Exists(k) select new FileInfo(k)) {
-                n.Refresh();
-                var d = new FileInfo(System.IO.Path.Combine(dest, n.Name));
-                if (!n.Exists || n.FullName.Equals(d.FullName, StringComparison.OrdinalIgnoreCase)) {
-                    continue;
-                }
-                if (d.Exists) {
-                    if (葱.比較(n, d)) {
-                        continue;
-                    }
-                    if ((d = Rename(d.FullName)) == null) {
-                        continue;
-                    }
-                }
-                spool.Schedule(t =>
-                {
-                    File.Move(n.FullName, d.FullName);
-                }, null);
+            var move = Move.Value;
+            var targets = from k in e.Data.GetData(DataFormats.FileDrop) as string[]
+                          where File.Exists(k)
+                          select new FileInfo(k);
+            if (targets.Count() == 0) {
+                return;
             }
+            TotalFiles.Value = targets.Count();
+            Progress.Value = 0;
+            spool.Schedule(t =>
+            {
+                busy = true;
+                foreach (var n in targets) {
+                    Dispatcher.Invoke(() => Progress.Value = Progress.Value + 1);
+                    n.Refresh();
+                    var d = new FileInfo(System.IO.Path.Combine(dest, n.Name));
+                    if (!n.Exists || n.FullName.Equals(d.FullName, StringComparison.OrdinalIgnoreCase)) {
+                        continue;
+                    }
+                    if (d.Exists) {
+                        if (葱.比較(n, d)) {
+                            continue;
+                        }
+                        if ((d = Rename(d.FullName)) == null) {
+                            continue;
+                        }
+                    }
+
+                    if (move) {
+                        File.Move(n.FullName, d.FullName);
+                    }
+                    else {
+                        File.Copy(n.FullName, d.FullName);
+                    }
+                }
+            }, t =>
+            {
+                busy = false;
+                Progress.Value = 0;
+            });
 
         }
 
@@ -132,8 +173,15 @@ namespace Dropper
             Dest.Value = dir.FullName;
         }
 
+
         private void Window_PreviewDragOver(object sender, DragEventArgs e)
         {
+            if (busy) {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
             if (e.Data.GetDataPresent(DataFormats.FileDrop, true)) {
                 e.Effects = DragDropEffects.Copy;
             }
@@ -143,6 +191,14 @@ namespace Dropper
             e.Handled = true;
         }
 
+        private void Window_DragEnter(object sender, DragEventArgs e)
+        {
+            RectColor.Value = Brushes.GhostWhite;
+        }
 
+        private void Window_DragLeave(object sender, DragEventArgs e)
+        {
+            RectColor.Value = Brushes.White;
+        }
     }
 }
